@@ -63,3 +63,9 @@ inline turn () {
 		p.dir = turn_dir;
 	}
 }
+
+//LTL Assertions
+//Penguins are on board.
+//Points strictly increase.
+//Stunned penguin implies 0 health.
+//Always possible to reach a winning state.
