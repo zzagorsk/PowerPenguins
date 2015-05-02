@@ -23,6 +23,7 @@ typedef Penguin {
 
 Penguin penguins[NUM_PENGUINS];
 
+
 inline move() {
 	int i;
 	for (i in penguins) {
@@ -58,13 +59,13 @@ inline move_penguin(p, dist) {
 		p.currPos.y = p.currPos.y + dist;
 	:: p.dir == WEST  -> 
 		p.currPos.x = p.currPos.x - dist;
-	fi;	
+	fi; 
 }
 	
-inline max(a, b, bigger) {
+inline max(a, b, ret) {
 	if 
-	:: a > b -> bigger = a;
-	:: else  -> bigger = b;
+	:: a > b -> ret = a;
+	:: else  -> ret = b;
 	fi;
 }
 
@@ -79,10 +80,51 @@ inline shoot() {
 	for (i in penguins){
 		int shoot_dir;
 		select (shoot_dir : 1 .. 4);
-		//check for penguins in targeted squares
-		//deal damage.
-		//gain points.
+		Point snowball;
+		snowball.x = penguins[i].currPos.x;
+		snowball.y = penguins[i].currPos.y;
+		bool in_bounds;
+		do ::
+			move_snowball(snowball, shoot_dir);
+			check_in_bounds(snowball, in_bounds);
+			if
+			:: !in_bounds -> break;
+			:: else -> 
+				int j;
+				for (j in penguins) {	
+					bool collision;
+					check_collision(snowball, penguins[j].currPos, collision)
+					if
+					:: collision -> 
+						penguins[i].points++;
+						penguins[j].health--;
+					:: else
+					fi;
+				}
+			fi;
+		od;
 	}
+}
+
+inline move_snowball(s, dir){
+	if
+	:: dir == NORTH ->
+		s.y--;
+	:: dir == SOUTH ->
+		s.y++;
+	:: dir == EAST  ->
+		s.x++;
+	:: dir == WEST  ->
+		s.x--;
+	fi;
+}
+
+inline check_in_bounds(s, ret){
+	ret = s.x >= 0 && s.x < BOARD_SIZE && s.y >= 0 && s.y < BOARD_SIZE;
+}
+
+inline check_collision(p1, p2, ret){
+	ret = p1.x == p2.x && p1.y == p2.y;
 }
 
 inline turn() {
