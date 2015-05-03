@@ -19,6 +19,7 @@ typedef Penguin {
 	int points;
 	Point home;
 	bool stunned;
+	bool hasSnowball;
 }
 
 Penguin penguins[NUM_PENGUINS];
@@ -33,7 +34,7 @@ inline move() {
 		select (dist : 0 .. max_dist);
 		move_penguin(penguins[i], dist)
 	}
-	//check_collisions();
+	check_collisions()
 }
 
 inline max_move_dist(p, dist) {
@@ -69,11 +70,27 @@ inline max(a, b, ret) {
 	fi;
 }
 
-/*
+
 inline check_collisions() {
-	//perform collision checks
+	int m;
+	for (m in penguins){
+		int n;
+		for (n in penguins){
+			bool collision;
+			check_collision(penguins[m].currPos, penguins[n].currPos, collision)
+			if
+			:: collision && m > n ->
+				penguins[m].health--;
+				penguins[m].hasSnowball = 0;
+				penguins[n].health--;
+				penguins[n].hasSnowball = 0;
+			:: else
+			fi;
+		}
+	}
+	//cleanup()?
 }
-*/
+
 
 inline shoot() {
 	int i;
@@ -133,6 +150,17 @@ inline turn() {
 		int turn_dir;
 		select (turn_dir : 1 .. 4);
 		penguins[i].dir = turn_dir;
+	}
+}
+
+inline cleanup() {
+	for (m in penguins){
+		if
+		:: penguins[m].health <= 0 ->
+			penguins[m].stunned = 1;
+			penguins[m].currPos = penguins[m].home
+		:: else
+		fi
 	}
 }
 
