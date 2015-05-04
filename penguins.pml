@@ -463,39 +463,55 @@ active proctype game () {
 //Points strictly increase.
 //Always possible to reach a winning state.
 
-int never__p;
-bool never__in_bounds;
-never {
-	do
-	:: ltl_okay -> 
-		//Penguins are on board XOR stunned.
-		for (never__p in penguins){
-			check_in_bounds(penguins[never__p].curr_pos, never__in_bounds);
-			if
-			:: penguins[never__p].stunned && never__in_bounds ->
-				goto violation;
-			:: (penguins[never__p].curr_pos.x == OFF_BOARD && 
-				penguins[never__p].curr_pos.y == OFF_BOARD) && 
-			   !penguins[never__p].stunned ->
-				goto violation;
-			:: else
-			fi;
-		}
-		//Stunned penguin never has positive health.
-		for (never__p in penguins){
-			if
-			:: penguins[never__p].stunned && penguins[never__p].health > 0 ->
-				goto violation;
-			:: else
-			fi;
-		}
-	:: else
-	od;
-	violation: skip
+//Penguins on board XOR stunned.
+ltl on_board_or_stunned { always (ltl_okay implies
+    ((penguins[0].curr_pos.x >= 0 && 
+      penguins[0].curr_pos.y >= 0 &&
+      penguins[0].curr_pos.x < BOARD_SIZE && 
+      penguins[0].curr_pos.y < BOARD_SIZE &&
+     !penguins[0].stunned) ||
+     (penguins[0].curr_pos.x == OFF_BOARD &&
+      penguins[0].curr_pos.y == OFF_BOARD &&
+      penguins[0].stunned)) &&
+    ((penguins[1].curr_pos.x >= 0 && 
+      penguins[1].curr_pos.y >= 0 &&
+      penguins[1].curr_pos.x < BOARD_SIZE && 
+      penguins[1].curr_pos.y < BOARD_SIZE &&
+     !penguins[1].stunned) ||
+     (penguins[1].curr_pos.x == OFF_BOARD &&
+      penguins[1].curr_pos.y == OFF_BOARD &&
+      penguins[1].stunned)) &&
+    ((penguins[2].curr_pos.x >= 0 && 
+      penguins[2].curr_pos.y >= 0 &&
+      penguins[2].curr_pos.x < BOARD_SIZE && 
+      penguins[2].curr_pos.y < BOARD_SIZE &&
+     !penguins[2].stunned) ||
+     (penguins[2].curr_pos.x == OFF_BOARD &&
+      penguins[2].curr_pos.y == OFF_BOARD &&
+      penguins[2].stunned)) &&
+    ((penguins[3].curr_pos.x >= 0 && 
+      penguins[3].curr_pos.y >= 0 &&
+      penguins[3].curr_pos.x < BOARD_SIZE && 
+      penguins[3].curr_pos.y < BOARD_SIZE &&
+     !penguins[3].stunned) ||
+     (penguins[3].curr_pos.x == OFF_BOARD &&
+      penguins[3].curr_pos.y == OFF_BOARD &&
+      penguins[3].stunned))) 
+}
+
+ltl stunned_or_healthy { always (ltl_okay implies
+    ((penguins[0].stunned && penguins[0].health <= 0) ||
+    (!penguins[0].stunned && penguins[0].health > 0)) &&
+    ((penguins[1].stunned && penguins[1].health <= 0) ||
+    (!penguins[1].stunned && penguins[1].health > 0)) &&
+    ((penguins[2].stunned && penguins[2].health <= 0) ||
+    (!penguins[2].stunned && penguins[2].health > 0)) &&
+    ((penguins[3].stunned && penguins[3].health <= 0) ||
+    (!penguins[3].stunned && penguins[3].health > 0)))
 }
 
 //We can show that it is possible to have infinite gameplay.
-ltl game_can_end { always (eventually game_over)}
+ltl game_can_end { always (eventually game_over) }
 //Every penguin either has one of each card or has used that card.
 ltl no_card_reuse { always (ltl_okay implies
     ((penguins[0].has_card[0] == !penguins[0].has_used_card[0]) &&
