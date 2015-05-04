@@ -186,7 +186,7 @@ inline big_cleanup() {
 			penguins[z].currPos.y = penguins[z].home.y;
 			penguins[z].hasSnowball = true;
 			penguins[z].health = 3;
-			penguins[m].stunned = false;
+			penguins[z].stunned = false;
 		:: else -> //not stunned, on board
 			penguins[z].hasSnowball = true;
 		fi;
