@@ -168,7 +168,7 @@ inline stun_only_cleanup() {
 			// penguins[m].currPos.x = penguins[m].home.x;
 			// penguins[m].currPos.y = penguins[m].home.y;
 		:: else
-		fi
+		fi;
 	}
 }
 
@@ -189,7 +189,7 @@ inline big_cleanup() {
 			penguins[m].stunned = false;
 		:: else -> //not stunned, on board
 			penguins[z].hasSnowball = true;
-		fi
+		fi;
 	}
 
 }
