@@ -31,6 +31,7 @@ typedef Penguin {
 	bool has_snowball;
 	bool has_card[NUM_CARDS];
 	bool using_card[NUM_CARDS];
+    bool has_used_card[NUM_CARDS];
 }
 
 Penguin penguins[NUM_PENGUINS];
@@ -71,30 +72,31 @@ inline move() {
 			:: penguins[i].using_card[SNOWSHOES] ->
 				int dir = snowshoe_dirs[i];
 				bool in_bounds;
-				Point new_pos;
+				Point next_pos;
 				do
 				::
-					relocate(new_pos, penguins[i].curr_pos);
+					relocate(next_pos, penguins[i].curr_pos);
 					if
 					:: dir == NORTH ->
-						new_pos.y--;
+						next_pos.y--;
 					:: dir == EAST  ->
-						new_pos.x++;
+						next_pos.x++;
 					:: dir == SOUTH ->
-						new_pos.y++;
+						next_pos.y++;
 					:: dir == WEST  ->
-						new_pos.x--;
+						next_pos.x--;
 					fi;
-					check_in_bounds(new_pos, in_bounds);
+					check_in_bounds(next_pos, in_bounds);
 					if
 					:: in_bounds ->
-						relocate(penguins[i].curr_pos, new_pos);
+						relocate(penguins[i].curr_pos, next_pos);
 						break;
 					:: else ->
 						dir = (dir + 1) % 4
 					fi;
 				od;
 				penguins[i].using_card[SNOWSHOES] = false;
+                penguins[i].has_used_card[SNOWSHOES] = true;
 			:: else
 			fi;
 		}
@@ -130,10 +132,12 @@ inline move_penguin(p, dist) {
 		:: p.curr_pos.x == CENTER && p.curr_pos.y > CENTER && 
 		   p.curr_pos.y - dist < CENTER ->
 			dist--;
+        :: else
 		fi;
 		if
 		:: p.curr_pos.x == CENTER && p.curr_pos.y - dist == CENTER -> 
 			dist--;
+        :: else
 		fi;
 		p.curr_pos.y = p.curr_pos.y - dist;
 	:: p.dir == EAST  -> 
@@ -141,10 +145,12 @@ inline move_penguin(p, dist) {
 		:: p.curr_pos.y == CENTER && p.curr_pos.x < CENTER && 
 		   p.curr_pos.x + dist > CENTER ->
 			dist--;
+        :: else
 		fi;
 		if
 		:: p.curr_pos.y == CENTER && p.curr_pos.x + dist == CENTER -> 
 			dist--;
+        :: else
 		fi;
 		p.curr_pos.x = p.curr_pos.x + dist;
 	:: p.dir == SOUTH -> 
@@ -152,10 +158,12 @@ inline move_penguin(p, dist) {
 		:: p.curr_pos.x == CENTER && p.curr_pos.y < CENTER && 
 		   p.curr_pos.y + dist > CENTER ->
 			dist--;
+        :: else
 		fi;
 		if
 		:: p.curr_pos.x == CENTER && p.curr_pos.y + dist == CENTER -> 
 			dist--;
+        :: else
 		fi;
 		p.curr_pos.y = p.curr_pos.y + dist;
 	:: p.dir == WEST  -> 
@@ -163,10 +171,12 @@ inline move_penguin(p, dist) {
 		:: p.curr_pos.y == CENTER && p.curr_pos.x > CENTER && 
 		   p.curr_pos.x - dist < CENTER ->
 			dist--;
+        :: else
 		fi;
 		if
 		:: p.curr_pos.y == CENTER && p.curr_pos.x - dist == CENTER -> 
 			dist--;
+        :: else
 		fi;
 		p.curr_pos.x = p.curr_pos.x - dist;
 	fi; 
@@ -215,7 +225,7 @@ inline shoot() {
 				do ::
 					if
 					:: penguins[i].using_card[SLINGSHOT] ->
-						move_snowball_diag(snowblall, shoot_dirs[i]);
+						move_snowball_diag(snowball, shoot_dirs[i]);
 					:: else ->
 						move_snowball(snowball, shoot_dirs[i]);
 					fi;
@@ -237,7 +247,12 @@ inline shoot() {
 						}
 					fi;
 				od;
-				penguins[i].using_card[SLINGSHOT] = false;
+                if
+                :: penguins[i].using_card[SLINGSHOT] ->
+				    penguins[i].using_card[SLINGSHOT] = false;
+                    penguins[i].has_used_card[SLINGSHOT] = true;
+                :: else
+                fi;
 			:: else
 			fi
 		}
@@ -363,9 +378,11 @@ inline setup(p){
 	penguins[p].has_snowball = true;
 	penguins[p].points = 0;
 	penguins[p].dir = p;
+    int i;
 	for (i : 0 .. NUM_CARDS - 1){
 		penguins[p].has_card[i] = true;
 		penguins[p].using_card[i] = false;
+        penguins[p].has_used_card[i] = false;
 	}
 	if
 	:: p == NORTH ->
@@ -393,7 +410,7 @@ inline pick_cards(){
 	int p;
 	for (p in penguins) {
 		int card;
-		select (card : 0 .. NUM_CARDS)
+		select (card : 0 .. NUM_CARDS);
 		if 
 		:: card < NUM_CARDS && penguins[p].has_card[card]->
 			penguins[p].has_card[card] = false;
@@ -410,6 +427,7 @@ inline use_earmuffs() {
 		:: penguins[p].using_card[EARMUFFS] ->
 			penguins[p].health++;
 			penguins[p].using_card[EARMUFFS] = false;
+            penguins[p].has_used_card[EARMUFFS] = true;
 		:: else
 		fi;
 	}
@@ -477,4 +495,18 @@ never {
 }
 
 //We can show that it is possible to have infinite gameplay.
-ltl game_can_end { always (eventually game_over)} //this should cause problems
+ltl game_can_end { always (eventually game_over)}
+//Every penguin either has one of each card or has used that card.
+ltl no_card_reuse { always (ltl_okay implies
+    ((penguins[0].has_card[0] == !penguins[0].has_used_card[0]) &&
+    (penguins[0].has_card[1] == !penguins[0].has_used_card[1]) &&
+    (penguins[0].has_card[2] == !penguins[0].has_used_card[2]) &&
+    (penguins[1].has_card[0] == !penguins[1].has_used_card[0]) &&
+    (penguins[1].has_card[1] == !penguins[1].has_used_card[1]) &&
+    (penguins[1].has_card[2] == !penguins[1].has_used_card[2]) &&
+    (penguins[2].has_card[0] == !penguins[2].has_used_card[0]) &&
+    (penguins[2].has_card[1] == !penguins[2].has_used_card[1]) &&
+    (penguins[2].has_card[2] == !penguins[2].has_used_card[2]) &&
+    (penguins[3].has_card[0] == !penguins[3].has_used_card[0]) &&
+    (penguins[3].has_card[1] == !penguins[3].has_used_card[1]) &&
+    (penguins[3].has_card[2] == !penguins[3].has_used_card[2])))}
