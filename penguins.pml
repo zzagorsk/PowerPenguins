@@ -160,10 +160,11 @@ inline turn() {
 }
 
 inline stun_only_cleanup() {
-	for (m in penguins){
+	int z;
+	for (z in penguins){
 		if
-		:: penguins[m].health <= 0 ->
-			penguins[m].stunned = true;
+		:: penguins[z].health <= 0 ->
+			penguins[z].stunned = true;
 			// penguins[m].currPos.x = penguins[m].home.x;
 			// penguins[m].currPos.y = penguins[m].home.y;
 		:: else
@@ -172,21 +173,22 @@ inline stun_only_cleanup() {
 }
 
 inline big_cleanup() {
-	for (m in penguins){
+	int z;
+	for (z in penguins){
 		if
-		:: penguins[m].health <= 0 && penguins[m].currPos.x != OFF_BOARD ->
-			penguins[m].stunned = true;
-			penguins[m].currPos.x = OFF_BOARD;
-			penguins[m].currPos.y = OFF_BOARD;
-			penguins[m].hasSnowball = false;
-		:: penguins[m].stunned && penguins[m].currPos.x == OFF_BOARD ->
-			penguins[m].currPos.x = penguins[m].home.x;
-			penguins[m].currPos.y = penguins[m].home.y;
-			penguins[m].hasSnowball = true;
-			penguins[m].health = 3;
+		:: penguins[z].health <= 0 && penguins[z].currPos.x != OFF_BOARD ->
+			penguins[z].stunned = true;
+			penguins[z].currPos.x = OFF_BOARD;
+			penguins[z].currPos.y = OFF_BOARD;
+			penguins[z].hasSnowball = false;
+		:: penguins[z].stunned && penguins[z].currPos.x == OFF_BOARD ->
+			penguins[z].currPos.x = penguins[z].home.x;
+			penguins[z].currPos.y = penguins[z].home.y;
+			penguins[z].hasSnowball = true;
+			penguins[z].health = 3;
 			penguins[m].stunned = false;
 		:: else -> //not stunned, on board
-			penguins[m].hasSnowball = true;
+			penguins[z].hasSnowball = true;
 		fi
 	}
 
