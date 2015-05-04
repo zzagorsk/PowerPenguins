@@ -3,6 +3,7 @@
 #define SOUTH 3
 #define WEST 4
 
+#define OFF_BOARD -1
 #define BOARD_SIZE 7
 #define MAX_MOVE 5
 #define NUM_PENGUINS 4
@@ -81,14 +82,14 @@ inline check_collisions() {
 			if
 			:: collision && m > n ->
 				penguins[m].health--;
-				penguins[m].hasSnowball = 0;
+				penguins[m].hasSnowball = false;
 				penguins[n].health--;
-				penguins[n].hasSnowball = 0;
+				penguins[n].hasSnowball = false;
 			:: else
 			fi;
 		}
 	}
-	//cleanup()?
+	stun_only_cleanup()
 }
 
 
@@ -102,6 +103,7 @@ inline shoot() {
 			Point snowball;
 			snowball.x = penguins[i].currPos.x;
 			snowball.y = penguins[i].currPos.y;
+			penguins[i].hasSnowball = false;
 			bool in_bounds;
 			do ::
 				move_snowball(snowball, shoot_dir);
@@ -157,16 +159,37 @@ inline turn() {
 	}
 }
 
-inline cleanup() {
+inline stun_only_cleanup() {
 	for (m in penguins){
 		if
 		:: penguins[m].health <= 0 ->
-			penguins[m].stunned = 1;
-			penguins[m].currPos.x = penguins[m].home.x;
-			penguins[m].currPos.y = penguins[m].home.y;
+			penguins[m].stunned = true;
+			// penguins[m].currPos.x = penguins[m].home.x;
+			// penguins[m].currPos.y = penguins[m].home.y;
 		:: else
 		fi
 	}
+}
+
+inline big_cleanup() {
+	for (m in penguins){
+		if
+		:: penguins[m].health <= 0 && penguins[m].currPos.x != OFF_BOARD ->
+			penguins[m].stunned = true;
+			penguins[m].currPos.x = OFF_BOARD;
+			penguins[m].currPos.y = OFF_BOARD;
+			penguins[m].hasSnowball = false;
+		:: penguins[m].stunned && penguins[m].currPos.x == OFF_BOARD ->
+			penguins[m].currPos.x = penguins[m].home.x;
+			penguins[m].currPos.y = penguins[m].home.y;
+			penguins[m].hasSnowball = true;
+			penguins[m].health = 3;
+			penguins[m].stunned = false;
+		:: else -> //not stunned, on board
+			penguins[m].hasSnowball = true;
+		fi
+	}
+
 }
 
 active proctype game () {
@@ -175,7 +198,7 @@ active proctype game () {
 	do
 	:: move();
 	   shoot();
-	   //cleanup();
+	   big_cleanup();
 	   turn();
 	od;
 }
