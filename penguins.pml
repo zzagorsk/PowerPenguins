@@ -9,15 +9,15 @@
 #define NUM_PENGUINS 4
 
 typedef Point {
-	int x;
-	int y;
+	short x;
+	short y;
 }
 
 typedef Penguin {
 	Point curr_pos;
-	int dir;
-	int health;
-	int points;
+	byte dir;
+	short health;
+	byte points;
 	Point home;
 	bool stunned;
 	bool has_snowball;
@@ -31,11 +31,16 @@ bool ltl_okay = false;
 inline move() {
 	int i;
 	for (i in penguins) {
-		int max_dist;
-		max_move_dist(penguins[i], max_dist);
-		int dist;
-		select (dist : 0 .. max_dist);
-		move_penguin(penguins[i], dist)
+		if
+		:: !penguins[i].stunned ->
+			int max_dist;
+			max_move_dist(penguins[i], max_dist);
+			int dist;
+			select (dist : 0 .. max_dist);
+			move_penguin(penguins[i], dist)
+			printf("Penguin %d moved %d spaces to (%d, %d)\n", i, dist, penguins[i].curr_pos.x, penguins[i].curr_pos.y);
+		:: else
+		fi;
 	}
 	check_collisions()
 }
@@ -219,7 +224,7 @@ inline check_victory() {
 inline setup(p){
 	penguins[p].stunned = false;
 	penguins[p].health = 3;
-	penguins[p].has_snowball;
+	penguins[p].has_snowball = true;
 	penguins[p].points = 0;
 	penguins[p].dir = p;
 	if
@@ -254,31 +259,29 @@ active proctype game () {
 	:: game_over ->
 		break;
 	:: else ->
-		ltl_okay = false;
-		move();
-	   	shoot();
-	   	big_cleanup();
-	   	turn();
-	   	check_victory();
-	   	ltl_okay = true;
+		atomic {
+			ltl_okay = false;
+			move();
+		   	shoot();
+		   	big_cleanup();
+		   	turn();
+		   	check_victory();
+		   	ltl_okay = true;
+	   }
 	od;
 }
 
 //LTL Assertions
-//Penguins are on board XOR stunned.
 //Points strictly increase.
-//Stunned penguin implies 0 health.
 //Always possible to reach a winning state.
 
-//Penguins are always on board
 int never__p;
-int never__in_bounds;
+bool never__in_bounds;
 never {
 	do
 	:: ltl_okay -> 
-		// int p;
+		//Penguins are on board XOR stunned.
 		for (never__p in penguins){
-			// bool in_bounds;
 			check_in_bounds(penguins[never__p].curr_pos, never__in_bounds);
 			if
 			:: penguins[never__p].stunned && never__in_bounds ->
@@ -290,14 +293,18 @@ never {
 			:: else
 			fi;
 		}
+		//Stunned penguin never has positive health.
+		for (never__p in penguins){
+			if
+			:: penguins[never__p].stunned && penguins[never__p].health > 0 ->
+				goto violation;
+			:: else
+			fi;
+		}
 	:: else
 	od;
 	violation: skip
 }
 
-// ltl stunned_no_health {
-// 	int p;
-// 	for (p in penguins){
-
-// 	}
-// }
+//We can show that it is possible to have infinite gameplay.
+ltl game_can_end { always (eventually game_over)} //this should cause problems
