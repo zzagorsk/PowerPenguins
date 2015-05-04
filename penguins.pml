@@ -1,7 +1,7 @@
-#define NORTH 1
-#define EAST 2
-#define SOUTH 3
-#define WEST 4
+#define NORTH 0
+#define EAST 1
+#define SOUTH 2
+#define WEST 3
 
 #define OFF_BOARD -1
 #define BOARD_SIZE 7
@@ -14,16 +14,18 @@ typedef Point {
 }
 
 typedef Penguin {
-	Point currPos;
+	Point curr_pos;
 	int dir;
 	int health;
 	int points;
 	Point home;
 	bool stunned;
-	bool hasSnowball;
+	bool has_snowball;
 }
 
 Penguin penguins[NUM_PENGUINS];
+bool game_over = false;
+bool ltl_okay = false;
 
 
 inline move() {
@@ -41,26 +43,26 @@ inline move() {
 inline max_move_dist(p, dist) {
 	if
 	:: p.dir == NORTH ->
-		max(p.currPos.y, MAX_MOVE, dist);
+		max(p.curr_pos.y, MAX_MOVE, dist);
 	:: p.dir == EAST  ->
-		max((BOARD_SIZE - p.currPos.x), MAX_MOVE, dist);
+		max((BOARD_SIZE - p.curr_pos.x), MAX_MOVE, dist);
 	:: p.dir == SOUTH ->
-		max((BOARD_SIZE - p.currPos.y), MAX_MOVE, dist);
+		max((BOARD_SIZE - p.curr_pos.y), MAX_MOVE, dist);
 	:: p.dir == WEST  ->
-		max(p.currPos.x, MAX_MOVE, dist);
+		max(p.curr_pos.x, MAX_MOVE, dist);
 	fi;
 }
 
 inline move_penguin(p, dist) {
 	if
 	:: p.dir == NORTH -> 
-		p.currPos.y = p.currPos.y - dist;
+		p.curr_pos.y = p.curr_pos.y - dist;
 	:: p.dir == EAST  -> 
-		p.currPos.x = p.currPos.x + dist;
+		p.curr_pos.x = p.curr_pos.x + dist;
 	:: p.dir == SOUTH -> 
-		p.currPos.y = p.currPos.y + dist;
+		p.curr_pos.y = p.curr_pos.y + dist;
 	:: p.dir == WEST  -> 
-		p.currPos.x = p.currPos.x - dist;
+		p.curr_pos.x = p.curr_pos.x - dist;
 	fi; 
 }
 	
@@ -78,13 +80,13 @@ inline check_collisions() {
 		int n;
 		for (n in penguins){
 			bool collision;
-			check_collision(penguins[m].currPos, penguins[n].currPos, collision)
+			check_collision(penguins[m].curr_pos, penguins[n].curr_pos, collision)
 			if
 			:: collision && m > n ->
 				penguins[m].health--;
-				penguins[m].hasSnowball = false;
+				penguins[m].has_snowball = false;
 				penguins[n].health--;
-				penguins[n].hasSnowball = false;
+				penguins[n].has_snowball = false;
 			:: else
 			fi;
 		}
@@ -97,13 +99,13 @@ inline shoot() {
 	int i;
 	for (i in penguins){
 		if
-		:: penguins[i].hasSnowball ->
+		:: penguins[i].has_snowball ->
 			int shoot_dir;
 			select (shoot_dir : 1 .. 4);
 			Point snowball;
-			snowball.x = penguins[i].currPos.x;
-			snowball.y = penguins[i].currPos.y;
-			penguins[i].hasSnowball = false;
+			snowball.x = penguins[i].curr_pos.x;
+			snowball.y = penguins[i].curr_pos.y;
+			penguins[i].has_snowball = false;
 			bool in_bounds;
 			do ::
 				move_snowball(snowball, shoot_dir);
@@ -114,7 +116,7 @@ inline shoot() {
 					int j;
 					for (j in penguins) {	
 						bool collision;
-						check_collision(snowball, penguins[j].currPos, collision)
+						check_collision(snowball, penguins[j].curr_pos, collision)
 						if
 						:: collision && !penguins[j].stunned-> 
 							penguins[i].points++;
@@ -165,8 +167,8 @@ inline stun_only_cleanup() {
 		if
 		:: penguins[z].health <= 0 ->
 			penguins[z].stunned = true;
-			// penguins[m].currPos.x = penguins[m].home.x;
-			// penguins[m].currPos.y = penguins[m].home.y;
+			// penguins[m].curr_pos.x = penguins[m].home.x;
+			// penguins[m].curr_pos.y = penguins[m].home.y;
 		:: else
 		fi;
 	}
@@ -176,32 +178,89 @@ inline big_cleanup() {
 	int z;
 	for (z in penguins){
 		if
-		:: penguins[z].health <= 0 && penguins[z].currPos.x != OFF_BOARD ->
+		:: penguins[z].health <= 0 && penguins[z].curr_pos.x != OFF_BOARD ->
 			penguins[z].stunned = true;
-			penguins[z].currPos.x = OFF_BOARD;
-			penguins[z].currPos.y = OFF_BOARD;
-			penguins[z].hasSnowball = false;
-		:: penguins[z].stunned && penguins[z].currPos.x == OFF_BOARD ->
-			penguins[z].currPos.x = penguins[z].home.x;
-			penguins[z].currPos.y = penguins[z].home.y;
-			penguins[z].hasSnowball = true;
+			penguins[z].curr_pos.x = OFF_BOARD;
+			penguins[z].curr_pos.y = OFF_BOARD;
+			penguins[z].has_snowball = false;
+		:: penguins[z].stunned && penguins[z].curr_pos.x == OFF_BOARD ->
+			relocate(penguins[z].curr_pos, penguins[z].home);
+			penguins[z].has_snowball = true;
 			penguins[z].health = 3;
 			penguins[z].stunned = false;
 		:: else -> //not stunned, on board
-			penguins[z].hasSnowball = true;
+			penguins[z].has_snowball = true;
 		fi;
 	}
 
 }
 
+inline check_victory() {
+	int p;
+	int max_points = 0;
+	int max_count = 0;
+	for (p in penguins){
+		if
+		:: penguins[p].points > max_points ->
+			max_count = 1;
+			max_points = penguins[p].points;
+		:: penguins[p].points == max_points ->
+			max_count++;
+		:: else
+		fi;
+	}
+	if
+	:: max_points >= 5 && max_count == 1 ->
+		game_over = true;
+	:: else
+	fi;
+}
+
+inline setup(p){
+	penguins[p].stunned = false;
+	penguins[p].health = 3;
+	penguins[p].has_snowball;
+	penguins[p].points = 0;
+	penguins[p].dir = p;
+	if
+	:: p == NORTH ->
+		penguins[p].home.x = 3;
+		penguins[p].home.y = 6;
+	:: p == SOUTH ->
+		penguins[p].home.x = 3;
+		penguins[p].home.y = 0;
+	:: p == EAST ->
+		penguins[p].home.x = 6;
+		penguins[p].home.y = 3;
+	:: p == WEST ->
+		penguins[p].home.x = 0;
+		penguins[p].home.y = 3;
+	fi;
+	relocate(penguins[p].curr_pos, penguins[p].home);
+}
+
+inline relocate(old_pos, new_pos){
+	old_pos.x = new_pos.x;
+	old_pos.y = new_pos.y;
+}
+
 active proctype game () {
 	//Instantiate penguins.
-
+	int penguin;
+	for (penguin in penguins){
+		setup(penguin);
+	}
 	do
-	:: move();
-	   shoot();
-	   big_cleanup();
-	   turn();
+	:: game_over ->
+		break;
+	:: else ->
+		ltl_okay = false;
+		move();
+	   	shoot();
+	   	big_cleanup();
+	   	turn();
+	   	check_victory();
+	   	ltl_okay = true;
 	od;
 }
 
@@ -210,3 +269,35 @@ active proctype game () {
 //Points strictly increase.
 //Stunned penguin implies 0 health.
 //Always possible to reach a winning state.
+
+//Penguins are always on board
+int never__p;
+int never__in_bounds;
+never {
+	do
+	:: ltl_okay -> 
+		// int p;
+		for (never__p in penguins){
+			// bool in_bounds;
+			check_in_bounds(penguins[never__p].curr_pos, never__in_bounds);
+			if
+			:: penguins[never__p].stunned && never__in_bounds ->
+				goto violation;
+			:: (penguins[never__p].curr_pos.x == OFF_BOARD && 
+				penguins[never__p].curr_pos.y == OFF_BOARD) && 
+			   !penguins[never__p].stunned ->
+				goto violation;
+			:: else
+			fi;
+		}
+	:: else
+	od;
+	violation: skip
+}
+
+// ltl stunned_no_health {
+// 	int p;
+// 	for (p in penguins){
+
+// 	}
+// }
