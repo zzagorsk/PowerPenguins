@@ -5,8 +5,14 @@
 
 #define OFF_BOARD -1
 #define BOARD_SIZE 3
+#define CENTER (BOARD_SIZE / 2)
 #define MAX_MOVE 5
 #define NUM_PENGUINS 4
+
+#define EARMUFFS 0
+#define SNOWSHOES 1
+#define SLINGSHOT 2
+#define NUM_CARDS 3
 
 #define INFINITY 10
 
@@ -23,6 +29,8 @@ typedef Penguin {
 	Point home;
 	bool stunned;
 	bool has_snowball;
+	bool has_card[NUM_CARDS];
+	bool using_card[NUM_CARDS];
 }
 
 Penguin penguins[NUM_PENGUINS];
@@ -33,10 +41,13 @@ bool ltl_okay = false;
 inline move() {
 	int i;
 	int move_dists[NUM_PENGUINS];
+	int snowshoe_dirs[NUM_PENGUINS];
 	for (i in move_dists) {
-		int dist;
-		select (dist : 0 .. MAX_MOVE);
-		move_dists[i] = dist;
+		int j;
+		select (j : 0 .. MAX_MOVE);
+		move_dists[i] = j;
+		select (j : NORTH .. WEST);
+		snowshoe_dirs[i] = j;	
 	}
 
 	skip;
@@ -49,11 +60,47 @@ inline move() {
 				printf("Penguin %d moved %d spaces to (%d, %d)\n", 
 				       i, move_dists[i], penguins[i].curr_pos.x, 
 				       penguins[i].curr_pos.y);
+				assert(!(penguins[i].curr_pos.x == CENTER &&
+				         penguins[i].curr_pos.y == CENTER));
+			:: else
+			fi;
+		}
+	
+		for (i in penguins) {
+			if
+			:: penguins[i].using_card[SNOWSHOES] ->
+				int dir = snowshoe_dirs[i];
+				bool in_bounds;
+				Point new_pos;
+				do
+				::
+					relocate(new_pos, penguins[i].curr_pos);
+					if
+					:: dir == NORTH ->
+						new_pos.y--;
+					:: dir == EAST  ->
+						new_pos.x++;
+					:: dir == SOUTH ->
+						new_pos.y++;
+					:: dir == WEST  ->
+						new_pos.x--;
+					fi;
+					check_in_bounds(new_pos, in_bounds);
+					if
+					:: in_bounds ->
+						relocate(penguins[i].curr_pos, new_pos);
+						break;
+					:: else ->
+						dir = (dir + 1) % 4
+					fi;
+				od;
+				penguins[i].using_card[SNOWSHOES] = false;
 			:: else
 			fi;
 		}
 		check_collisions()
 	}
+	
 }
 
 inline max_move_dist(p, dist) {
@@ -79,12 +126,48 @@ inline min(a, b, ret) {
 inline move_penguin(p, dist) {
 	if
 	:: p.dir == NORTH -> 
+		if
+		:: p.curr_pos.x == CENTER && p.curr_pos.y > CENTER && 
+		   p.curr_pos.y - dist < CENTER ->
+			dist--;
+		fi;
+		if
+		:: p.curr_pos.x == CENTER && p.curr_pos.y - dist == CENTER -> 
+			dist--;
+		fi;
 		p.curr_pos.y = p.curr_pos.y - dist;
 	:: p.dir == EAST  -> 
+		if
+		:: p.curr_pos.y == CENTER && p.curr_pos.x < CENTER && 
+		   p.curr_pos.x + dist > CENTER ->
+			dist--;
+		fi;
+		if
+		:: p.curr_pos.y == CENTER && p.curr_pos.x + dist == CENTER -> 
+			dist--;
+		fi;
 		p.curr_pos.x = p.curr_pos.x + dist;
 	:: p.dir == SOUTH -> 
+		if
+		:: p.curr_pos.x == CENTER && p.curr_pos.y < CENTER && 
+		   p.curr_pos.y + dist > CENTER ->
+			dist--;
+		fi;
+		if
+		:: p.curr_pos.x == CENTER && p.curr_pos.y + dist == CENTER -> 
+			dist--;
+		fi;
 		p.curr_pos.y = p.curr_pos.y + dist;
 	:: p.dir == WEST  -> 
+		if
+		:: p.curr_pos.y == CENTER && p.curr_pos.x > CENTER && 
+		   p.curr_pos.x - dist < CENTER ->
+			dist--;
+		fi;
+		if
+		:: p.curr_pos.y == CENTER && p.curr_pos.x - dist == CENTER -> 
+			dist--;
+		fi;
 		p.curr_pos.x = p.curr_pos.x - dist;
 	fi; 
 }
@@ -128,25 +211,33 @@ inline shoot() {
 				snowball.y = penguins[i].curr_pos.y;
 				penguins[i].has_snowball = false;
 				bool in_bounds;
+				bool penguin_hit = false;
 				do ::
-					move_snowball(snowball, shoot_dirs[i]);
+					if
+					:: penguins[i].using_card[SLINGSHOT] ->
+						move_snowball_diag(snowblall, shoot_dirs[i]);
+					:: else ->
+						move_snowball(snowball, shoot_dirs[i]);
+					fi;
 					check_in_bounds(snowball, in_bounds);
 					if
-					:: !in_bounds -> break;
+					:: !in_bounds || penguin_hit -> break;
 					:: else -> 
 						int j;
 						for (j in penguins) {	
 							bool collision;
 							check_collision(snowball, penguins[j].curr_pos, collision)
 							if
-							:: collision && !penguins[j].stunned-> 
+							:: collision && !penguins[j].stunned -> 
 								penguins[i].points++;
 								penguins[j].health--;
+								penguin_hit = true;
 							:: else
 							fi;
 						}
 					fi;
 				od;
+				penguins[i].using_card[SLINGSHOT] = false;
 			:: else
 			fi
 		}
@@ -166,8 +257,26 @@ inline move_snowball(s, dir){
 	fi;
 }
 
+inline move_snowball_diag(s, dir){
+	if
+	:: dir == NORTH ->
+		s.y--;
+		s.x++;
+	:: dir == SOUTH ->
+		s.y++;
+		s.x--;
+	:: dir == EAST  ->
+		s.x++;
+		s.y++;
+	:: dir == WEST  ->
+		s.x--;
+		s.y--;
+	fi;
+}
+
 inline check_in_bounds(s, ret){
-	ret = s.x >= 0 && s.x < BOARD_SIZE && s.y >= 0 && s.y < BOARD_SIZE;
+	ret = s.x >= 0 && s.x < BOARD_SIZE && s.y >= 0 && s.y < BOARD_SIZE &&
+	      (s.x != CENTER || s.y != CENTER);
 }
 
 inline check_collision(p1, p2, ret){
@@ -254,19 +363,23 @@ inline setup(p){
 	penguins[p].has_snowball = true;
 	penguins[p].points = 0;
 	penguins[p].dir = p;
+	for (i : 0 .. NUM_CARDS - 1){
+		penguins[p].has_card[i] = true;
+		penguins[p].using_card[i] = false;
+	}
 	if
 	:: p == NORTH ->
-		penguins[p].home.x = BOARD_SIZE/2;
+		penguins[p].home.x = CENTER;
 		penguins[p].home.y = BOARD_SIZE - 1;
 	:: p == SOUTH ->
-		penguins[p].home.x = BOARD_SIZE/2;
+		penguins[p].home.x = CENTER;
 		penguins[p].home.y = 0;
 	:: p == EAST ->
 		penguins[p].home.x = BOARD_SIZE - 1;
-		penguins[p].home.y = BOARD_SIZE/2;
+		penguins[p].home.y = CENTER;
 	:: p == WEST ->
 		penguins[p].home.x = 0;
-		penguins[p].home.y = BOARD_SIZE/2;
+		penguins[p].home.y = CENTER;
 	fi;
 	relocate(penguins[p].curr_pos, penguins[p].home);
 }
@@ -274,6 +387,32 @@ inline setup(p){
 inline relocate(old_pos, new_pos){
 	old_pos.x = new_pos.x;
 	old_pos.y = new_pos.y;
+}
+
+inline pick_cards(){
+	int p;
+	for (p in penguins) {
+		int card;
+		select (card : 0 .. NUM_CARDS)
+		if 
+		:: card < NUM_CARDS && penguins[p].has_card[card]->
+			penguins[p].has_card[card] = false;
+			penguins[p].using_card[card] = true;
+		:: else
+		fi;
+	}
+}
+
+inline use_earmuffs() {
+	int p;
+	for (p in penguins) {
+		if
+		:: penguins[p].using_card[EARMUFFS] ->
+			penguins[p].health++;
+			penguins[p].using_card[EARMUFFS] = false;
+		:: else
+		fi;
+	}
 }
 
 active proctype game () {
@@ -290,6 +429,8 @@ active proctype game () {
 	:: else ->
 		atomic {
 			ltl_okay = false;
+			pick_cards();
+			use_earmuffs();
 			move();
 			shoot();
 			big_cleanup();
