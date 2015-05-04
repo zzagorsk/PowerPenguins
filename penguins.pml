@@ -95,31 +95,35 @@ inline check_collisions() {
 inline shoot() {
 	int i;
 	for (i in penguins){
-		int shoot_dir;
-		select (shoot_dir : 1 .. 4);
-		Point snowball;
-		snowball.x = penguins[i].currPos.x;
-		snowball.y = penguins[i].currPos.y;
-		bool in_bounds;
-		do ::
-			move_snowball(snowball, shoot_dir);
-			check_in_bounds(snowball, in_bounds);
-			if
-			:: !in_bounds -> break;
-			:: else -> 
-				int j;
-				for (j in penguins) {	
-					bool collision;
-					check_collision(snowball, penguins[j].currPos, collision)
-					if
-					:: collision -> 
-						penguins[i].points++;
-						penguins[j].health--;
-					:: else
-					fi;
-				}
-			fi;
-		od;
+		if
+		:: penguins[i].hasSnowball ->
+			int shoot_dir;
+			select (shoot_dir : 1 .. 4);
+			Point snowball;
+			snowball.x = penguins[i].currPos.x;
+			snowball.y = penguins[i].currPos.y;
+			bool in_bounds;
+			do ::
+				move_snowball(snowball, shoot_dir);
+				check_in_bounds(snowball, in_bounds);
+				if
+				:: !in_bounds -> break;
+				:: else -> 
+					int j;
+					for (j in penguins) {	
+						bool collision;
+						check_collision(snowball, penguins[j].currPos, collision)
+						if
+						:: collision && !penguins[j].stunned-> 
+							penguins[i].points++;
+							penguins[j].health--;
+						:: else
+						fi;
+					}
+				fi;
+			od;
+		:: else
+		fi
 	}
 }
 
@@ -158,7 +162,8 @@ inline cleanup() {
 		if
 		:: penguins[m].health <= 0 ->
 			penguins[m].stunned = 1;
-			penguins[m].currPos = penguins[m].home
+			penguins[m].currPos.x = penguins[m].home.x;
+			penguins[m].currPos.y = penguins[m].home.y;
 		:: else
 		fi
 	}
@@ -176,7 +181,7 @@ active proctype game () {
 }
 
 //LTL Assertions
-//Penguins are on board.
+//Penguins are on board XOR stunned.
 //Points strictly increase.
 //Stunned penguin implies 0 health.
 //Always possible to reach a winning state.
