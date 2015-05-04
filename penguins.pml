@@ -4,9 +4,11 @@
 #define WEST 3
 
 #define OFF_BOARD -1
-#define BOARD_SIZE 7
+#define BOARD_SIZE 3
 #define MAX_MOVE 5
 #define NUM_PENGUINS 4
+
+#define INFINITY 10
 
 typedef Point {
 	short x;
@@ -30,31 +32,47 @@ bool ltl_okay = false;
 
 inline move() {
 	int i;
-	for (i in penguins) {
-		if
-		:: !penguins[i].stunned ->
-			int max_dist;
-			max_move_dist(penguins[i], max_dist);
-			int dist;
-			select (dist : 0 .. max_dist);
-			move_penguin(penguins[i], dist)
-			printf("Penguin %d moved %d spaces to (%d, %d)\n", i, dist, penguins[i].curr_pos.x, penguins[i].curr_pos.y);
-		:: else
-		fi;
+	int move_dists[NUM_PENGUINS];
+	for (i in move_dists) {
+		int dist;
+		select (dist : 0 .. MAX_MOVE);
+		move_dists[i] = dist;
 	}
-	check_collisions()
+
+	skip;
+	d_step {
+		for (i in penguins) {
+			if
+			:: !penguins[i].stunned ->
+				max_move_dist(penguins[i], move_dists[i]);
+				move_penguin(penguins[i], move_dists[i]);
+				printf("Penguin %d moved %d spaces to (%d, %d)\n", 
+				       i, move_dists[i], penguins[i].curr_pos.x, 
+				       penguins[i].curr_pos.y);
+			:: else
+			fi;
+		}
+		check_collisions()
+	}
 }
 
 inline max_move_dist(p, dist) {
 	if
 	:: p.dir == NORTH ->
-		max(p.curr_pos.y, MAX_MOVE, dist);
+		min(p.curr_pos.y, dist, dist);
 	:: p.dir == EAST  ->
-		max((BOARD_SIZE - p.curr_pos.x), MAX_MOVE, dist);
+		min((BOARD_SIZE - p.curr_pos.x), dist, dist);
 	:: p.dir == SOUTH ->
-		max((BOARD_SIZE - p.curr_pos.y), MAX_MOVE, dist);
+		min((BOARD_SIZE - p.curr_pos.y), dist, dist);
 	:: p.dir == WEST  ->
-		max(p.curr_pos.x, MAX_MOVE, dist);
+		min(p.curr_pos.x, dist, dist);
+	fi;
+}
+
+inline min(a, b, ret) {
+	if 
+	:: a < b -> ret = a;
+	:: else  -> ret = b;
 	fi;
 }
 
@@ -70,14 +88,6 @@ inline move_penguin(p, dist) {
 		p.curr_pos.x = p.curr_pos.x - dist;
 	fi; 
 }
-	
-inline max(a, b, ret) {
-	if 
-	:: a > b -> ret = a;
-	:: else  -> ret = b;
-	fi;
-}
-
 
 inline check_collisions() {
 	int m;
@@ -102,37 +112,44 @@ inline check_collisions() {
 
 inline shoot() {
 	int i;
+	int shoot_dirs[NUM_PENGUINS];
 	for (i in penguins){
-		if
-		:: penguins[i].has_snowball ->
-			int shoot_dir;
-			select (shoot_dir : 1 .. 4);
-			Point snowball;
-			snowball.x = penguins[i].curr_pos.x;
-			snowball.y = penguins[i].curr_pos.y;
-			penguins[i].has_snowball = false;
-			bool in_bounds;
-			do ::
-				move_snowball(snowball, shoot_dir);
-				check_in_bounds(snowball, in_bounds);
-				if
-				:: !in_bounds -> break;
-				:: else -> 
-					int j;
-					for (j in penguins) {	
-						bool collision;
-						check_collision(snowball, penguins[j].curr_pos, collision)
-						if
-						:: collision && !penguins[j].stunned-> 
-							penguins[i].points++;
-							penguins[j].health--;
-						:: else
-						fi;
-					}
-				fi;
-			od;
-		:: else
-		fi
+		int dir;
+		select (dir : NORTH .. WEST);
+		shoot_dirs[i] = dir;
+	}
+	skip;
+	d_step {
+		for (i in penguins){
+			if
+			:: penguins[i].has_snowball ->
+				Point snowball;
+				snowball.x = penguins[i].curr_pos.x;
+				snowball.y = penguins[i].curr_pos.y;
+				penguins[i].has_snowball = false;
+				bool in_bounds;
+				do ::
+					move_snowball(snowball, shoot_dirs[i]);
+					check_in_bounds(snowball, in_bounds);
+					if
+					:: !in_bounds -> break;
+					:: else -> 
+						int j;
+						for (j in penguins) {	
+							bool collision;
+							check_collision(snowball, penguins[j].curr_pos, collision)
+							if
+							:: collision && !penguins[j].stunned-> 
+								penguins[i].points++;
+								penguins[j].health--;
+							:: else
+							fi;
+						}
+					fi;
+				od;
+			:: else
+			fi
+		}
 	}
 }
 
@@ -159,10 +176,17 @@ inline check_collision(p1, p2, ret){
 
 inline turn() {
 	int i;
-	for (i in penguins){
-		int turn_dir;
-		select (turn_dir : 1 .. 4);
-		penguins[i].dir = turn_dir;
+	int turn_dirs[NUM_PENGUINS];
+	for (i in penguins){ 
+		int dir;
+		select (dir : NORTH .. WEST);
+		turn_dirs[i] = dir;
+	}
+	skip;
+	d_step {
+		for (i in penguins){
+			penguins[i].dir = turn_dirs[i];
+		}
 	}
 }
 
@@ -172,53 +196,56 @@ inline stun_only_cleanup() {
 		if
 		:: penguins[z].health <= 0 ->
 			penguins[z].stunned = true;
-			// penguins[m].curr_pos.x = penguins[m].home.x;
-			// penguins[m].curr_pos.y = penguins[m].home.y;
 		:: else
 		fi;
 	}
 }
 
 inline big_cleanup() {
-	int z;
-	for (z in penguins){
-		if
-		:: penguins[z].health <= 0 && penguins[z].curr_pos.x != OFF_BOARD ->
-			penguins[z].stunned = true;
-			penguins[z].curr_pos.x = OFF_BOARD;
-			penguins[z].curr_pos.y = OFF_BOARD;
-			penguins[z].has_snowball = false;
-		:: penguins[z].stunned && penguins[z].curr_pos.x == OFF_BOARD ->
-			relocate(penguins[z].curr_pos, penguins[z].home);
-			penguins[z].has_snowball = true;
-			penguins[z].health = 3;
-			penguins[z].stunned = false;
-		:: else -> //not stunned, on board
-			penguins[z].has_snowball = true;
-		fi;
+	d_step {
+		int z;
+		for (z in penguins){
+			if
+			:: penguins[z].health <= 0 && penguins[z].curr_pos.x != OFF_BOARD ->
+				penguins[z].stunned = true;
+				penguins[z].curr_pos.x = OFF_BOARD;
+				penguins[z].curr_pos.y = OFF_BOARD;
+				penguins[z].has_snowball = false;
+			:: penguins[z].stunned && penguins[z].curr_pos.x == OFF_BOARD ->
+				relocate(penguins[z].curr_pos, penguins[z].home);
+				penguins[z].has_snowball = true;
+				penguins[z].health = 3;
+				penguins[z].stunned = false;
+			:: else -> //not stunned, on board
+				penguins[z].has_snowball = true;
+			fi;
+		}
 	}
-
 }
 
 inline check_victory() {
-	int p;
-	int max_points = 0;
-	int max_count = 0;
-	for (p in penguins){
+	d_step {
+		int p;
+		int max_points = 0;
+		int max_count = 0;
+		for (p in penguins){
+			if
+			:: penguins[p].points > max_points ->
+				max_count = 1;
+				max_points = penguins[p].points;
+			:: penguins[p].points == max_points ->
+				max_count++;
+			:: else
+			fi;
+		}
 		if
-		:: penguins[p].points > max_points ->
-			max_count = 1;
-			max_points = penguins[p].points;
-		:: penguins[p].points == max_points ->
-			max_count++;
+		:: max_points >= 5 && max_count == 1 ->
+			game_over = true;
+		:: max_points > INFINITY ->
+			assert(false)
 		:: else
 		fi;
 	}
-	if
-	:: max_points >= 5 && max_count == 1 ->
-		game_over = true;
-	:: else
-	fi;
 }
 
 inline setup(p){
@@ -229,17 +256,17 @@ inline setup(p){
 	penguins[p].dir = p;
 	if
 	:: p == NORTH ->
-		penguins[p].home.x = 3;
-		penguins[p].home.y = 6;
+		penguins[p].home.x = BOARD_SIZE/2;
+		penguins[p].home.y = BOARD_SIZE - 1;
 	:: p == SOUTH ->
-		penguins[p].home.x = 3;
+		penguins[p].home.x = BOARD_SIZE/2;
 		penguins[p].home.y = 0;
 	:: p == EAST ->
-		penguins[p].home.x = 6;
-		penguins[p].home.y = 3;
+		penguins[p].home.x = BOARD_SIZE - 1;
+		penguins[p].home.y = BOARD_SIZE/2;
 	:: p == WEST ->
 		penguins[p].home.x = 0;
-		penguins[p].home.y = 3;
+		penguins[p].home.y = BOARD_SIZE/2;
 	fi;
 	relocate(penguins[p].curr_pos, penguins[p].home);
 }
@@ -251,9 +278,11 @@ inline relocate(old_pos, new_pos){
 
 active proctype game () {
 	//Instantiate penguins.
-	int penguin;
-	for (penguin in penguins){
-		setup(penguin);
+	d_step {
+		int penguin;
+		for (penguin in penguins){
+			setup(penguin);
+		}
 	}
 	do
 	:: game_over ->
@@ -262,11 +291,11 @@ active proctype game () {
 		atomic {
 			ltl_okay = false;
 			move();
-		   	shoot();
-		   	big_cleanup();
-		   	turn();
-		   	check_victory();
-		   	ltl_okay = true;
+			shoot();
+			big_cleanup();
+			turn();
+			check_victory();
+			ltl_okay = true;
 	   }
 	od;
 }
