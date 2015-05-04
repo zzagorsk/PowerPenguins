@@ -8,13 +8,14 @@
 #define CENTER (BOARD_SIZE / 2)
 #define MAX_MOVE 5
 #define NUM_PENGUINS 4
+#define WIN_COND 3
 
 #define EARMUFFS 0
 #define SNOWSHOES 1
 #define SLINGSHOT 2
 #define NUM_CARDS 3
 
-#define INFINITY 10
+#define INFINITY 5
 
 typedef Point {
 	short x;
@@ -38,65 +39,63 @@ Penguin penguins[NUM_PENGUINS];
 bool game_over = false;
 bool ltl_okay = false;
 
-
 inline move() {
-	int i;
-	int move_dists[NUM_PENGUINS];
-	int snowshoe_dirs[NUM_PENGUINS];
-	for (i in move_dists) {
-		int j;
+	byte p;
+	byte move_dists[NUM_PENGUINS];
+	byte snowshoe_dirs[NUM_PENGUINS];
+	for (p in move_dists) {
+		byte j;
 		select (j : 0 .. MAX_MOVE);
-		move_dists[i] = j;
+		move_dists[p] = j;
 		select (j : NORTH .. WEST);
-		snowshoe_dirs[i] = j;	
+		snowshoe_dirs[p] = j;	
 	}
 
 	skip;
 	d_step {
-		for (i in penguins) {
+		for (p in penguins) {
 			if
-			:: !penguins[i].stunned ->
-				max_move_dist(penguins[i], move_dists[i]);
-				move_penguin(penguins[i], move_dists[i]);
+			:: !penguins[p].stunned ->
+				max_move_dist(penguins[p], move_dists[p]);
+				move_penguin(penguins[p], move_dists[p]);
 				printf("Penguin %d moved %d spaces to (%d, %d)\n", 
-				       i, move_dists[i], penguins[i].curr_pos.x, 
-				       penguins[i].curr_pos.y);
-				assert(!(penguins[i].curr_pos.x == CENTER &&
-				         penguins[i].curr_pos.y == CENTER));
+				       p, move_dists[p], penguins[p].curr_pos.x, 
+				       penguins[p].curr_pos.y);
+				assert(!(penguins[p].curr_pos.x == CENTER &&
+				         penguins[p].curr_pos.y == CENTER));
 			:: else
 			fi;
 		}
 	
-		for (i in penguins) {
+		for (p in penguins) {
 			if
-			:: penguins[i].using_card[SNOWSHOES] ->
-				int dir = snowshoe_dirs[i];
+			:: penguins[p].using_card[SNOWSHOES] ->
 				bool in_bounds;
 				Point next_pos;
 				do
 				::
-					relocate(next_pos, penguins[i].curr_pos);
+					relocate(next_pos, penguins[p].curr_pos);
 					if
-					:: dir == NORTH ->
+					:: snowshoe_dirs[p] == NORTH ->
 						next_pos.y--;
-					:: dir == EAST  ->
+					:: snowshoe_dirs[p] == EAST  ->
 						next_pos.x++;
-					:: dir == SOUTH ->
+					:: snowshoe_dirs[p] == SOUTH ->
 						next_pos.y++;
-					:: dir == WEST  ->
+					:: snowshoe_dirs[p] == WEST  ->
 						next_pos.x--;
 					fi;
 					check_in_bounds(next_pos, in_bounds);
 					if
 					:: in_bounds ->
-						relocate(penguins[i].curr_pos, next_pos);
+						relocate(penguins[p].curr_pos, next_pos);
 						break;
 					:: else ->
-						dir = (dir + 1) % 4
+						snowshoe_dirs[p] = (snowshoe_dirs[p] + 1) % 4
 					fi;
 				od;
-				penguins[i].using_card[SNOWSHOES] = false;
-                penguins[i].has_used_card[SNOWSHOES] = true;
+				penguins[p].using_card[SNOWSHOES] = false;
+                penguins[p].has_used_card[SNOWSHOES] = true;
 			:: else
 			fi;
 		}
@@ -183,9 +182,9 @@ inline move_penguin(p, dist) {
 }
 
 inline check_collisions() {
-	int m;
+	byte m;
 	for (m in penguins){
-		int n;
+		byte n;
 		for (n in penguins){
 			bool collision;
 			check_collision(penguins[m].curr_pos, penguins[n].curr_pos, collision)
@@ -204,53 +203,54 @@ inline check_collisions() {
 
 
 inline shoot() {
-	int i;
-	int shoot_dirs[NUM_PENGUINS];
-	for (i in penguins){
-		int dir;
+	byte p;
+	byte shoot_dirs[NUM_PENGUINS];
+	for (p in penguins){
+		byte dir;
 		select (dir : NORTH .. WEST);
-		shoot_dirs[i] = dir;
+		shoot_dirs[p] = dir;
 	}
 	skip;
 	d_step {
-		for (i in penguins){
+		for (p in penguins){
 			if
-			:: penguins[i].has_snowball ->
+			:: penguins[p].has_snowball ->
 				Point snowball;
-				snowball.x = penguins[i].curr_pos.x;
-				snowball.y = penguins[i].curr_pos.y;
-				penguins[i].has_snowball = false;
+				snowball.x = penguins[p].curr_pos.x;
+				snowball.y = penguins[p].curr_pos.y;
+				penguins[p].has_snowball = false;
 				bool in_bounds;
 				bool penguin_hit = false;
 				do ::
 					if
-					:: penguins[i].using_card[SLINGSHOT] ->
-						move_snowball_diag(snowball, shoot_dirs[i]);
+					:: penguins[p].using_card[SLINGSHOT] ->
+						move_snowball_diag(snowball, shoot_dirs[p]);
 					:: else ->
-						move_snowball(snowball, shoot_dirs[i]);
+						move_snowball(snowball, shoot_dirs[p]);
 					fi;
 					check_in_bounds(snowball, in_bounds);
 					if
-					:: !in_bounds || penguin_hit -> break;
+					//:: !in_bounds || penguin_hit -> break;
+					:: !in_bounds
 					:: else -> 
-						int j;
-						for (j in penguins) {	
+						byte i;
+						for (i in penguins) {	
 							bool collision;
-							check_collision(snowball, penguins[j].curr_pos, collision)
+							check_collision(snowball, penguins[i].curr_pos, collision)
 							if
-							:: collision && !penguins[j].stunned -> 
-								penguins[i].points++;
-								penguins[j].health--;
-								penguin_hit = true;
+							:: collision && !penguins[i].stunned -> 
+								penguins[p].points++;
+								penguins[i].health--;
+								//penguin_hit = true;
 							:: else
 							fi;
 						}
 					fi;
 				od;
                 if
-                :: penguins[i].using_card[SLINGSHOT] ->
-				    penguins[i].using_card[SLINGSHOT] = false;
-                    penguins[i].has_used_card[SLINGSHOT] = true;
+                :: penguins[p].using_card[SLINGSHOT] ->
+				    penguins[p].using_card[SLINGSHOT] = false;
+                    penguins[p].has_used_card[SLINGSHOT] = true;
                 :: else
                 fi;
 			:: else
@@ -299,23 +299,16 @@ inline check_collision(p1, p2, ret){
 }
 
 inline turn() {
-	int i;
-	int turn_dirs[NUM_PENGUINS];
-	for (i in penguins){ 
-		int dir;
+	byte p;
+	for (p in penguins){ 
+		byte dir;
 		select (dir : NORTH .. WEST);
-		turn_dirs[i] = dir;
-	}
-	skip;
-	d_step {
-		for (i in penguins){
-			penguins[i].dir = turn_dirs[i];
-		}
+		penguins[p].dir = dir;
 	}
 }
 
 inline stun_only_cleanup() {
-	int z;
+	byte z;
 	for (z in penguins){
 		if
 		:: penguins[z].health <= 0 ->
@@ -327,7 +320,7 @@ inline stun_only_cleanup() {
 
 inline big_cleanup() {
 	d_step {
-		int z;
+		byte z;
 		for (z in penguins){
 			if
 			:: penguins[z].health <= 0 && penguins[z].curr_pos.x != OFF_BOARD ->
@@ -349,9 +342,9 @@ inline big_cleanup() {
 
 inline check_victory() {
 	d_step {
-		int p;
-		int max_points = 0;
-		int max_count = 0;
+		byte p;
+		byte max_points = 0;
+	    byte max_count = 0;
 		for (p in penguins){
 			if
 			:: penguins[p].points > max_points ->
@@ -363,7 +356,7 @@ inline check_victory() {
 			fi;
 		}
 		if
-		:: max_points >= 5 && max_count == 1 ->
+		:: max_points >= WIN_COND && max_count == 1 ->
 			game_over = true;
 		:: max_points > INFINITY ->
 			assert(false)
@@ -378,7 +371,7 @@ inline setup(p){
 	penguins[p].has_snowball = true;
 	penguins[p].points = 0;
 	penguins[p].dir = p;
-    int i;
+    byte i;
 	for (i : 0 .. NUM_CARDS - 1){
 		penguins[p].has_card[i] = true;
 		penguins[p].using_card[i] = false;
@@ -407,55 +400,58 @@ inline relocate(old_pos, new_pos){
 }
 
 inline pick_cards(){
-	int p;
-	for (p in penguins) {
-		int card;
+	byte p;
+	byte cards[NUM_PENGUINS];
+	for (p in cards) {
+		byte card;
 		select (card : 0 .. NUM_CARDS);
-		if 
-		:: card < NUM_CARDS && penguins[p].has_card[card]->
-			penguins[p].has_card[card] = false;
-			penguins[p].using_card[card] = true;
-		:: else
-		fi;
+		cards[p] = card;
 	}
-}
-
-inline use_earmuffs() {
-	int p;
-	for (p in penguins) {
-		if
-		:: penguins[p].using_card[EARMUFFS] ->
-			penguins[p].health++;
-			penguins[p].using_card[EARMUFFS] = false;
-            penguins[p].has_used_card[EARMUFFS] = true;
-		:: else
-		fi;
+	skip;
+	d_step {
+		for (p in penguins) {
+			if 
+			:: cards[p] < NUM_CARDS && penguins[p].has_card[cards[p]]->
+				penguins[p].has_card[cards[p]] = false;
+				penguins[p].using_card[cards[p]] = true;
+			:: else
+			fi;
+		}
+		
+		//Use EARMUFFS card if selected.
+		for (p in penguins) {
+			if
+			:: penguins[p].using_card[EARMUFFS] ->
+				penguins[p].health++;
+				penguins[p].using_card[EARMUFFS] = false;
+				penguins[p].has_used_card[EARMUFFS] = true;
+			:: else
+			fi;
+		}
 	}
 }
 
 active proctype game () {
 	//Instantiate penguins.
 	d_step {
-		int penguin;
-		for (penguin in penguins){
-			setup(penguin);
+		byte p;
+		for (p in penguins){
+			setup(p);
 		}
 	}
+	ltl_okay = true;
 	do
 	:: game_over ->
 		break;
 	:: else ->
-		atomic {
-			ltl_okay = false;
-			pick_cards();
-			use_earmuffs();
-			move();
-			shoot();
-			big_cleanup();
-			turn();
-			check_victory();
-			ltl_okay = true;
-	   }
+    	ltl_okay = false;
+		pick_cards();
+		move();
+		shoot();
+		big_cleanup();
+		turn();
+		check_victory();
+		ltl_okay = true;
 	od;
 }
 
@@ -512,6 +508,7 @@ ltl stunned_or_healthy { always (ltl_okay implies
 
 //We can show that it is possible to have infinite gameplay.
 ltl game_can_end { always (eventually game_over) }
+
 //Every penguin either has one of each card or has used that card.
 ltl no_card_reuse { always (ltl_okay implies
     ((penguins[0].has_card[0] == !penguins[0].has_used_card[0]) &&
