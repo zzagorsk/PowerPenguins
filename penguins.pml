@@ -19,7 +19,7 @@
 
 typedef Point {
 	short x;
-	short y;
+    short y;
 }
 
 typedef Penguin {
@@ -109,9 +109,9 @@ inline max_move_dist(p, dist) {
 	:: p.dir == NORTH ->
 		min(p.curr_pos.y, dist, dist);
 	:: p.dir == EAST  ->
-		min((BOARD_SIZE - p.curr_pos.x), dist, dist);
+		min((BOARD_SIZE - p.curr_pos.x - 1), dist, dist);
 	:: p.dir == SOUTH ->
-		min((BOARD_SIZE - p.curr_pos.y), dist, dist);
+		min((BOARD_SIZE - p.curr_pos.y - 1), dist, dist);
 	:: p.dir == WEST  ->
 		min(p.curr_pos.x, dist, dist);
 	fi;
@@ -231,7 +231,7 @@ inline shoot() {
 					check_in_bounds(snowball, in_bounds);
 					if
 					//:: !in_bounds || penguin_hit -> break;
-					:: !in_bounds
+					:: !in_bounds -> break;
 					:: else -> 
 						byte i;
 						for (i in penguins) {	
