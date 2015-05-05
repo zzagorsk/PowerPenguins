@@ -456,8 +456,6 @@ active proctype game () {
 }
 
 //LTL Assertions
-//Points strictly increase.
-//Always possible to reach a winning state.
 
 //Penguins on board XOR stunned.
 ltl on_board_or_stunned { always (ltl_okay implies
